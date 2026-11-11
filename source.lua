@@ -6,7 +6,7 @@
 d8'        `8b                                                                         88               88                                                            
 88          88  ,adPPYba,  88,dPYba,,adPYba,   88  88       88  88,dPYba,,adPYba,      88           88  88,dPPYba,   8b,dPPYba,  ,adPPYYba,  8b,dPPYba,  8b       d8  
 88          88  I8[    ""  88P'   "88"    "8a  88  88       88  88P'   "88"    "8a     88           88  88P'    "8a  88P'   "Y8  ""     `Y8  88P'   "Y8  `8b     d8'  
-Y8,        ,8P   `"Y8ba,   88      88      88  88  88       88  88      88      88     88           88  88       d8  88          ,adPPPPP88  88           `8b   d8'   
+Y8,        ,8P   `"Y8ba,   88      88      88  88  88       88  88      88      88     88           88  88       d8  88          ,adPPPPP88  88           `8b   d8'    
  Y8a.    .a8P   aa    ]8I  88      88      88  88  "8a,   ,a88  88      88      88     88           88  88b,   ,a8"  88          88,    ,88  88            `8b,d8'    
   `"Y8888Y"'    `"YbbdP"'  88      88      88  88   `"YbbdP'Y8  88      88      88     88888888888  88  8Y"Ybbd8"'   88          `"8bbdP"Y8  88              Y88'     
                                                                                                                                                              d8'      
@@ -35,6 +35,7 @@ local library = (function ()
     local UserInputService = game:GetService("UserInputService")
 
     local library = {
+        OpenCloseKeybind = Enum.KeyCode.LeftAlt,
         WindowState = {
             Opened = 1,
             Minimized = 0,
@@ -273,8 +274,8 @@ local destructionHooks = {}
                 top.Visible = true
             end
 
-            local handler = UserInputService.InputBegan:Connect(function (input)
-                if input.KeyCode == Enum.KeyCode.LeftAlt then
+            local handler = UserInputService.InputBegan:Connect(function (input, gameProcessed)
+                if not gameProcessed and input.KeyCode == library.OpenCloseKeybind then
                     if opened then
                         window:Hide()
                     else
@@ -489,7 +490,7 @@ local destructionHooks = {}
 
                     local function grow()
                         task.wait(0.05)
-                        textBoxInstance:TweenPosition(UDim2.new(originalPos.X.Scale - 0.3, originalPos.X.Offset - (originalSize.X.Offset * 0.3), originalPos.Y.Scale, originalPos.Y.Offset), "In", "Linear", 0.2)
+                        textBoxInstance:TweenPosition(UDim2.new(originalPos.X.Scale - 0.3, originalPos.X.Offset - (originalSize.X.Offset * 0.3), originalPos.Y.Scale, originalPos.Y.Offset), "In", "Line")
                         textBoxInstance:TweenSize(UDim2.new(originalSize.X.Scale + 0.3, originalSize.X.Offset * 1.3, originalSize.Y.Scale, originalSize.Y.Offset), "In", "Linear", 0.2)
                     end
 
@@ -911,6 +912,72 @@ local destructionHooks = {}
                 end
 
                 return button
+            end
+
+            function tab:CreateOpenCloseKeybind(label)
+                local keybind = {}
+                local isCapturing = false
+
+                local buttonContainer = CreateInstance("TextButton", tabContainer, {
+                    TextColor3 = Colors.White,
+                    Text = "  " .. (label or "Open/Close Keybind") .. ": " .. library.OpenCloseKeybind.Name,
+                    Font = Font,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    AutoButtonColor = false,
+                    Size = UDim2.new(0, 438, 0, 35),
+                    TextSize = 14,
+                    BackgroundColor3 = Colors.Gray.DarkButton
+                })
+
+                CreateInstance("UICorner", buttonContainer, {
+                    CornerRadius = UDim.new(0, 2)
+                })
+                autobutcolor(buttonContainer, Colors.Gray.DarkButton)
+
+                local function updateLabel()
+                    buttonContainer.Text = "  " .. (label or "Open/Close Keybind") .. ": " .. library.OpenCloseKeybind.Name
+                end
+
+                buttonContainer.MouseButton1Click:Connect(function ()
+                    isCapturing = true
+                    buttonContainer.Text = "  " .. (label or "Open/Close Keybind") .. ": Press a key (Esc to cancel)"
+                end)
+
+                local inputConnection = UserInputService.InputBegan:Connect(function (input, gameProcessed)
+                    if not isCapturing or gameProcessed then
+                        return
+                    end
+
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        isCapturing = false
+
+                        if input.KeyCode == Enum.KeyCode.Escape then
+                            updateLabel()
+                        elseif input.KeyCode ~= Enum.KeyCode.Unknown then
+                            library.OpenCloseKeybind = input.KeyCode
+                            updateLabel()
+                        end
+                    end
+                end)
+
+                function keybind:GetKeyCode()
+                    return library.OpenCloseKeybind
+                end
+
+                function keybind:SetKeyCode(keyCode)
+                    assert(typeof(keyCode) == "EnumItem" and keyCode.EnumType == Enum.KeyCode,
+                        "keyCode must be an Enum.KeyCode")
+                    library.OpenCloseKeybind = keyCode
+                    updateLabel()
+                end
+
+                function keybind:Destroy()
+                    isCapturing = false
+                    inputConnection:Disconnect()
+                    buttonContainer:Destroy()
+                end
+
+                return keybind
             end
 
             function tab:CreateDropdown(text, values, callback)
